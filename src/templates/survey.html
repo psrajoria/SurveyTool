@@ -25,7 +25,8 @@
         <h1 class="text-center mb-4">Image Comparison {{ current_image }} of {{ total_images }}</h1>
         <div class="image-container">
             <img src="{{ main_image }}" alt="Main Image" class="img-thumbnail" style="max-width: 300px;">
-            <img src="{{ compare_image }}" alt="Compare Image" class="img-thumbnail" style="max-width: 300px;">
+            <!-- <img src="{{ compare_image }}" alt="Compare Image" class="img-thumbnail" style="max-width: 300px;"> -->
+            <img src="{{ compare_image }}" alt="Compare Image" style="width: 360px; height: 480px;">
         </div>
         <form method="POST" action="/survey" class="bg-white p-4 shadow rounded">
             <div class="mb-3">
