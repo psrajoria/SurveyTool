@@ -252,7 +252,7 @@ class Response(db.Model):
 
 # Load URLs and founder names from Excel
 def get_comparison_data():
-    df = pd.read_excel("data/FounderImageURL60.xlsx")
+    df = pd.read_excel("FounderImageURL60.xlsx")
     return [
         {"name": row["founder_identifier_uuid"], "url": row["download_url"]}
         for _, row in df.iterrows()
