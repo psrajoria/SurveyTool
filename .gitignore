@@ -7,5 +7,5 @@ venv
 /instance/
 # /src/data/
 # data/
-instance/
+# instance/
 Setup_MTurk.docx
