@@ -8,9 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
             background-color: #f9f9f9;
-            text-align: center;
         }
 
         .dashboard {
@@ -18,16 +16,17 @@
             justify-content: space-around;
             flex-wrap: wrap;
             padding: 20px;
-            background-color: #333;
-            color: #fff;
         }
 
         .dashboard_item {
             width: 22%;
-            padding: 20px;
-            background-color: #444;
+            padding: 15px;
+            background-color: #4CAF50;
+            color: #fff;
+            text-align: center;
             border-radius: 8px;
             margin: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         table {
@@ -41,60 +40,69 @@
         td {
             border: 1px solid #ddd;
             padding: 12px;
-            text-align: left;
+            text-align: center;
         }
 
         th {
             background-color: #f4f4f4;
+            font-weight: bold;
         }
     </style>
 </head>
 
-<body>
-    <h1>Survey Results</h1>
-    <a href="/download_results" class="btn btn-success">Download Results as Excel</a>
+<body class="bg-light">
+    <div class="container my-4">
+        <h1 class="text-center">Survey Insights</h1>
+        <a href="/download_results" class="btn btn-success mb-3">Download Results as Excel</a>
 
-    <div class="dashboard">
-        <div class="dashboard_item">
-            <h2>{{ total_responses }}</h2>
-            <p>Total Surveys</p>
-        </div>
-        <div class="dashboard_item">
-            <h2>{{ average_age }}</h2>
-            <p>Average Age</p>
-        </div>
-        <div class="dashboard_item">
-            <h2>{{ unique_names }}</h2>
-            <p>Unique Participants</p>
-        </div>
-        <div class="dashboard_item">
-            <h2>{{ average_similarity }}</h2>
-            <p>Average Similarity Score</p>
-        </div>
-    </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Age</th>
-                <th>Email</th>
-                <th>Founder Name</th>
-                <th>Similarity Score</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for response in responses %}
-            <tr>
-                <td>{{ response.name }}</td>
-                <td>{{ response.age }}</td>
-                <td>{{ response.email }}</td>
-                <td>{{ response.founder_name }}</td>
-                <td>{{ response.similarity_score }}</td>
-            </tr>
+        <div class="dashboard">
+            <div class="dashboard_item">
+                <h2>{{ total_responses }}</h2>
+                <p>Total Responses</p>
+            </div>
+            <div class="dashboard_item">
+                <h2>{{ total_participants }}</h2>
+                <p>Unique Participants</p>
+            </div>
+            <div class="dashboard_item" title="Average Similarity Score across all responses">
+                <h2>{{ average_similarity }}</h2>
+                <p>Average Similarity Score</p>
+            </div>
+            <div class="dashboard_item" title="Median Similarity Score across all responses">
+                <h2>{{ median_similarity }}</h2>
+                <p>Median Similarity Score</p>
+            </div>
+            {% for i in range(1, 5) %}
+            <div class="dashboard_item">
+                <h2>{{ version_counts[i] }}</h2>
+                <p>Version {{ i }} Responses</p>
+            </div>
+            <div class="dashboard_item" title="Average Similarity for Version {{ i }}">
+                <h2>{{ version_average_similarity[i] }}</h2>
+                <p>Version {{ i }} Avg. Similarity</p>
+            </div>
             {% endfor %}
-        </tbody>
-    </table>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Participant ID</th>
+                    <th>Survey Version</th>
+                    <th>Similarity Scores (Average)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for participant in participant_data %}
+                <tr>
+                    <td>{{ participant.id }}</td>
+                    <td>{{ participant.version }}</td>
+                    <td>{{ participant.average_score }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
