@@ -57,23 +57,47 @@ def assign_photos(version, comparison_data):
     return all_photos
 
 
+# @app.route("/", methods=["GET", "POST"])
+# def index():
+#     if request.method == "POST":
+#         participant_id = str(uuid.uuid4())
+#         session["participant_id"] = participant_id
+
+#         version = random.choice([1, 2, 3, 4])
+#         session["version"] = version
+#         session["current_image"] = 0
+#         session["start_time"] = datetime.now()
+
+#         comparison_data = get_comparison_data()
+#         session["photos"] = assign_photos(version, comparison_data)
+
+#         return redirect(url_for("survey"))
+
+#     return render_template("index.html")
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
+    error = None
     if request.method == "POST":
-        participant_id = str(uuid.uuid4())
-        session["participant_id"] = participant_id
+        answer = request.form.get("answer")
+        if answer != "correct":
+            error = "Incorrect answer. Please select the correct option to proceed."
+        else:
+            participant_id = str(uuid.uuid4())
+            session["participant_id"] = participant_id
 
-        version = random.choice([1, 2, 3, 4])
-        session["version"] = version
-        session["current_image"] = 0
-        session["start_time"] = datetime.now()
+            version = random.choice([1, 2, 3, 4])
+            session["version"] = version
+            session["current_image"] = 0
+            session["start_time"] = datetime.now()
 
-        comparison_data = get_comparison_data()
-        session["photos"] = assign_photos(version, comparison_data)
+            comparison_data = get_comparison_data()
+            session["photos"] = assign_photos(version, comparison_data)
 
-        return redirect(url_for("survey"))
+            return redirect(url_for("survey"))
 
-    return render_template("index.html")
+    return render_template("index.html", error=error)
 
 
 @app.route("/survey", methods=["GET", "POST"])
