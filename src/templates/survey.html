@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .container {
-            max-width: 1200px;
+            max-width: 900px;
             margin: auto;
             padding: 20px;
             background-color: #fff;
@@ -20,16 +20,36 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
-            margin-bottom: 20px;
+            gap: 30px;
+            margin-bottom: 30px;
         }
 
-        .image-container img {
+        .image-main,
+        .image-compare {
+            width: 100%;
+            max-width: 1356px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .image-main img,
+        .image-compare img {
             width: 100%;
             height: auto;
-            aspect-ratio: 1 / 1;
+            display: block;
+        }
+
+        .image-compare {
+            width: 300px;
+            height: 300px;
+            overflow: hidden;
+        }
+
+        .image-compare img {
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            max-width: 300px;
         }
 
         .form-check {
@@ -37,32 +57,66 @@
         }
 
         .slider-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
             margin-bottom: 20px;
         }
 
-        .timer {
-            text-align: center;
-            margin-bottom: 10px;
+        .slider {
+            -webkit-appearance: none;
+            width: 50%;
+            transition: all 0.3s ease;
+            height: 12px;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #007bff 0%, #007bff var(--range-value), #ccc var(--range-value), #ccc 100%);
+            outline: none;
+            opacity: 0.85;
+        }
+
+        .slider:hover {
+            opacity: 1;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid #007bff;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background 0.3s ease, transform 0.3s ease;
+        }
+
+        .slider:active::-webkit-slider-thumb {
+            background: #007bff;
+            transform: scale(1.1);
+        }
+
+        .score-display {
+            font-size: 1.25rem;
             font-weight: bold;
+            color: #007bff;
+            text-align: center;
         }
     </style>
 </head>
 
 <body class="bg-light">
-    <div class="container">
+    <div class="container-fluid">
         <h2 class="text-center mb-4">Image Comparison {{ current_image }} of {{ total_images }}</h2>
 
-        <!-- Timer display -->
-        <div class="timer" id="timer">Time Elapsed: 0s</div>
-
         <div class="image-container">
-            <div class="text-center">
-                <label for="main_image">Picture 1</label>
+            <div class="image-main">
+                <h4 class="text-center"><label for="main_image">Picture 1</label></h4>
                 <img src="{{ main_image }}" alt="Main Image">
             </div>
-            <div class="text-center">
-                <label for="compare_image">Picture 2</label>
-                <img src="{{ compare_image }}" alt="Compare Image">
+            <div class="image-compare">
+                <h4 class="text-center"><label for="compare_image">Picture 2</label></h4>
+                <img src="{{ compare_image }}" alt="Compare Image" width="200px" height="200px">
             </div>
         </div>
 
@@ -73,38 +127,60 @@
             </label>
         </div>
 
-        <form method="POST" action="/survey">
+        <form method="POST" action="/survey" onsubmit="return validateForm();">
             <div class="slider-container">
-                <label for="similarity_score" class="form-label">Similarity Score (0 - 100)</label>
+                <span>Least Similar (0)</span>
                 <input type="range" name="similarity_score" id="similarity_score" min="0" max="100" step="1"
-                    class="form-range" oninput="updateSliderValue(this.value)" required>
-                <p>Score: <span id="sliderValue" class="slider-value">50</span></p>
-
-                <div class="range-labels d-flex justify-content-between">
-                    <span class="min">Least Similar (0)</span>
-                    <span class="max">Most Similar (100)</span>
-                </div>
+                    class="form-range slider" oninput="updateSliderValue(this.value)">
+                <span>Most Similar (100)</span>
+                <button type="submit" class="btn btn-primary btn-lg ms-2" id="submitButton" data-bs-toggle="tooltip"
+                    title="Please specify the required similarity score for the image" disabled>Submit</button>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Submit</button>
+
+            <div class="score-display">Score: <span id="sliderValue" class="slider-value">0</span></div>
         </form>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.7/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
+
     <script>
-        // Maintain a persistent start time across image loads
-        const timerElement = document.getElementById("timer");
-        let startTime = parseInt(localStorage.getItem('surveyStartTime') || Date.now());
-        localStorage.setItem('surveyStartTime', startTime);
+        let sliderValue = 0; // Initialize slider value
+        let isSliderMoved = false; // Flag to track slider movement
+
+        // Initialize tooltip
+        let tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        let tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
 
         function updateSliderValue(value) {
+            sliderValue = value; // Update slider value
+            if (value !== '0') {
+                isSliderMoved = true; // Slider is moved away from initial position
+                document.getElementById('submitButton').disabled = false; // Enable submit button
+                document.getElementById('submitButton').setAttribute('data-bs-original-title', 'Click to submit your score'); // Update tooltip
+            } else {
+                document.getElementById('submitButton').disabled = true; // Keep submit button disabled
+                document.getElementById('submitButton').setAttribute('data-bs-original-title', 'Please specify the required similarity score for the image'); // Reset tooltip
+            }
             document.getElementById("sliderValue").textContent = value;
+            document.querySelector('.slider').style.setProperty('--range-value', value + '%');
         }
 
-        function updateTime() {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            timerElement.textContent = `Time Elapsed: ${elapsed}s`;
+        function validateForm() {
+            if (!isSliderMoved) {
+                location.reload();
+                return false; // Prevent form submission
+            }
+            return true; // Allow form submission
         }
 
-        setInterval(updateTime, 1000);
+        document.getElementById('similarity_score').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter' && isSliderMoved) {
+                document.forms[0].submit(); // Submit form if Enter is pressed and slider is moved
+            }
+        });
     </script>
 </body>
 
