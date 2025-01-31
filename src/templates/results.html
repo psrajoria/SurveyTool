@@ -89,7 +89,8 @@
                 <tr>
                     <th>Participant ID</th>
                     <th>Survey Version</th>
-                    <th>Similarity Scores (Average)</th>
+                    <th>Average Score</th>
+                    <th>Responses</th>
                 </tr>
             </thead>
             <tbody>
@@ -98,6 +99,28 @@
                     <td>{{ participant.id }}</td>
                     <td>{{ participant.version }}</td>
                     <td>{{ participant.average_score }}</td>
+                    <td>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Photo ID</th>
+                                    <th>Batch Code</th>
+                                    <th>Index</th>
+                                    <th>Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for response in participant.responses %}
+                                <tr>
+                                    <td>{{ response.photo_id }}</td>
+                                    <td>{{ response.batch_code }}</td>
+                                    <td>{{ response.image_index }}</td>
+                                    <td>{{ response.similarity_score }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

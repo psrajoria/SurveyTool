@@ -30,6 +30,30 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 
+# from models import Response
+
+
+def check_survey_completion():
+    """
+    Check if the survey has already been completed using the consent_id.
+    If completed, redirect with a flash message indicating completion.
+    """
+    consent_id = session.get("consent_id")
+
+    if consent_id:
+        # Check if there are any completed responses associated with this consent_id
+        completed_responses = Response.query.filter_by(
+            consent_id=consent_id, completed=True
+        ).all()
+
+        if completed_responses:
+            flash("You have already completed this survey.")
+            return redirect(url_for("thankyou_complete"))
+
+    # Return None if the survey has not been completed
+    return None
+
+
 class UserConsent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     consent_id = db.Column(db.String(100), unique=True, nullable=False)
@@ -41,32 +65,19 @@ class UserConsent(db.Model):
 class Response(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     participant_id = db.Column(db.String(100), nullable=False)
-    consent_id = db.Column(db.String(100), nullable=False)  # New field
+    consent_id = db.Column(db.String(100), nullable=False)
     version = db.Column(db.Integer, nullable=False)
     image_index = db.Column(db.Integer, nullable=False)
     similarity_score = db.Column(db.Float, nullable=False)
     completed = db.Column(db.Boolean, default=False, nullable=False)
-
-
-# # Routes for consent
-# @app.route("/", methods=["GET"])
-# def consent():
-#     ip = get_client_ip()
-#     user_agent = get_user_agent()
-#     consent_record = UserConsent.query.filter_by(
-#         ip_address=ip, user_agent=user_agent
-#     ).first()
-
-#     if consent_record and consent_record.consent_given:
-#         return redirect(url_for("index"))
-#     return render_template("consent.html")
+    batch_code = db.Column(db.String(6), nullable=False)  # Assumes you store this info
+    photo_id = db.Column(db.String(100), nullable=False)  # New column for photo ID
 
 
 @app.route("/", methods=["GET"])
 def consent():
     ip = get_client_ip()
     user_agent = get_user_agent()
-    # Ensure proper database querying
     consent_record = UserConsent.query.filter_by(
         ip_address=ip, user_agent=user_agent
     ).first()
@@ -76,14 +87,13 @@ def consent():
     return render_template("consent.html")
 
 
-# # Routes for consent
 @app.route("/give_consent", methods=["POST"])
 def give_consent():
     consent_status = request.form.get("consent")
     if consent_status == "accepted":
         ip = get_client_ip()
         user_agent = get_user_agent()
-        consent_id = str(uuid.uuid4())  # Generate a unique consent ID
+        consent_id = str(uuid.uuid4())
         consent_record = UserConsent(
             consent_id=consent_id,
             ip_address=ip,
@@ -92,7 +102,7 @@ def give_consent():
         )
         db.session.add(consent_record)
         db.session.commit()
-        session["consent_id"] = consent_id  # Store the consent_id in session
+        session["consent_id"] = consent_id
         return redirect(url_for("index"))
     elif consent_status == "denied":
         return redirect(url_for("exit"))
@@ -101,96 +111,24 @@ def give_consent():
         return redirect(url_for("consent"))
 
 
-# @app.route("/index", methods=["GET", "POST"])
-# def index():
-#     error = None
-#     ip = get_client_ip()
-#     user_agent = get_user_agent()
-#     consent_record = UserConsent.query.filter_by(
-#         ip_address=ip, user_agent=user_agent
-#     ).first()
-
-#     if not consent_record or not consent_record.consent_given:
-#         return redirect(url_for("consent"))
-
-#     # Check if this user has already completed the survey
-#     if consent_record:
-#         existing_responses = Response.query.filter_by(
-#             consent_id=consent_record.consent_id, completed=True
-#         ).all()
-#         if existing_responses:
-#             error = "You have already completed this survey."
-
-#     if request.method == "POST" and not error:
-#         answer = request.form.get("answer")
-#         if answer != "correct":
-#             error = "Incorrect answer. Please select the correct option to proceed."
-#         else:
-#             participant_id = str(uuid.uuid4())
-#             session["participant_id"] = participant_id
-
-#             version = random.choice([1, 2, 3, 4])
-#             session["version"] = version
-#             session["current_image"] = 0
-#             session["start_time"] = datetime.now()
-
-#             comparison_data = get_comparison_data()
-#             session["photos"] = assign_photos(version, comparison_data)
-
-#             return redirect(url_for("survey"))
-
-#     return render_template("index.html", error=error)
-
-
-# @app.route("/index", methods=["GET", "POST"])
-# def index():
-#     error = None
-#     ip = request.remote_addr  # Replace with your method to get client IP
-#     user_agent = request.headers.get(
-#         "User-Agent"
-#     )  # Replace with your method to get user agent
-
-#     consent_record = None  # Replace with your database query logic
-
-#     if consent_record is None or not consent_record.consent_given:
-#         return redirect(url_for("consent"))
-
-#     if request.method == "POST" and not error:
-#         answer = request.form.get("answer")
-#         if answer != "correct":
-#             error = "Incorrect answer. Please select the correct option to proceed."
-#         else:
-#             participant_id = str(uuid.uuid4())
-#             session["participant_id"] = participant_id
-
-#             version = random.choice(range(1, 11))  # Randomize from 1 to 10
-#             session["version"] = version
-#             session["current_image"] = 0
-#             session["start_time"] = datetime.now()
-
-#             comparison_data = get_comparison_data()
-#             try:
-#                 session["photos"] = assign_photos(version, comparison_data)
-#                 return redirect(url_for("survey"))
-#             except ValueError as e:
-#                 error = str(e)  # Capture error if the combination is exhausted
-#                 return render_template("index.html", error=error)
-
-#     return render_template("index.html", error=error)
-
-
 @app.route("/index", methods=["GET", "POST"])
 def index():
     error = None
     ip = get_client_ip()
     user_agent = get_user_agent()
-    # Query database for consent check
     consent_record = UserConsent.query.filter_by(
         ip_address=ip, user_agent=user_agent
     ).first()
 
     if not consent_record or not consent_record.consent_given:
         return redirect(url_for("consent"))
+        # Check if this user has already completed the survey
+    if consent_record:
+        existing_responses = Response.query.filter_by(
+            consent_id=consent_record.consent_id, completed=True
+        ).all()
+        if existing_responses:
+            error = "You have already completed this survey."
 
     if request.method == "POST" and not error:
         answer = request.form.get("answer")
@@ -200,7 +138,7 @@ def index():
             participant_id = str(uuid.uuid4())
             session["participant_id"] = participant_id
 
-            version = random.choice(range(1, 11))  # Randomize from 1 to 10
+            version = random.choice(range(1, 11))
             session["version"] = version
             session["current_image"] = 0
             session["start_time"] = datetime.now()
@@ -210,17 +148,16 @@ def index():
                 session["photos"] = assign_photos(version, comparison_data)
                 return redirect(url_for("survey"))
             except ValueError as e:
-                error = str(e)  # Capture error if the combination is exhausted
+                error = str(e)
 
     return render_template("index.html", error=error)
 
 
-# showing consent id on top of survey for transparency
 @app.route("/survey", methods=["GET", "POST"])
 def survey():
     photos = session.get("photos", [])
     current_image = session.get("current_image", 0)
-    consent_id = session.get("consent_id")  # Retrieve the consent_id
+    consent_id = session.get("consent_id")
 
     if request.method == "POST":
         similarity_score = request.form.get("similarity_score")
@@ -228,19 +165,24 @@ def survey():
         # Save the response
         participant_id = session.get("participant_id")
         version = session.get("version")
+        batch_code = photos[0]["batch_code"]  # Assuming first photo has batch code
+        photo_id = photos[current_image][
+            "id"
+        ]  # Retrieve photo ID for the current image
 
         response = Response(
             participant_id=participant_id,
             consent_id=consent_id,
             version=version,
             image_index=current_image,
+            photo_id=photo_id,
             similarity_score=float(similarity_score),
+            batch_code=batch_code,
         )
 
         db.session.add(response)
         db.session.commit()
 
-        # Increment current image index
         current_image += 1
         session["current_image"] = current_image
 
@@ -249,7 +191,6 @@ def survey():
         else:
             return redirect(url_for("survey"))
 
-    # Render the current image
     try:
         compare_image = photos[current_image]["url"]
     except IndexError:
@@ -263,52 +204,34 @@ def survey():
         compare_image=compare_image,
         current_image=current_image + 1,
         total_images=len(photos),
-        consent_id=consent_id,  # Pass the consent_id to the template
+        consent_id=consent_id,
     )
-
-
-# @app.route("/thankyou", methods=["GET", "POST"])
-# def thankyou():
-#     if request.method == "POST":
-#         completion_code = request.form.get("completion_code")
-#         if completion_code == "VALID_CODE":
-#             responses = Response.query.filter_by(
-#                 participant_id=session.get("participant_id"), completed=False
-#             ).all()
-#             for response in responses:
-#                 response.completed = True
-#                 db.session.commit()
-#             return redirect(url_for("thankyou_complete"))
-#         else:
-#             flash("Incorrect completion code.")
-#             return redirect(url_for("index"))
-
-#     return render_template("thankyou.html")
 
 
 @app.route("/thankyou", methods=["GET", "POST"])
 def thankyou():
-    completion_code = session.get(
-        "completion_code"
-    )  # Retrieve the completion code from the session
+
+    completion_check = check_survey_completion()
+    if completion_check:
+        return completion_check
+    completion_code = session.get("completion_code")
 
     if request.method == "POST":
         entered_code = request.form.get("completion_code")
 
-        # Validate the completion code against the session stored code
         if entered_code == completion_code:
             participant_id = session.get("participant_id")
-            responses = []  # Replace with actual response retrieval logic
+            responses = Response.query.filter_by(
+                participant_id=participant_id, completed=False
+            ).all()
             for response in responses:
                 response.completed = True
-                # Uncomment and replace with your DB commit logic
-                # db.session.commit()
+            db.session.commit()
             return redirect(url_for("thankyou_complete"))
         else:
             flash("Incorrect completion code.")
             return redirect(url_for("index"))
 
-    # Render the page with the completion code
     return render_template("thankyou.html", completion_code=completion_code)
 
 
@@ -317,7 +240,6 @@ def thankyou_complete():
     start_time = session.get("start_time")
     end_time = datetime.now()
 
-    # Ensure both datetimes are naive
     if start_time.tzinfo is not None:
         start_time = start_time.replace(tzinfo=None)
 
@@ -333,7 +255,7 @@ def results():
     if "authenticated" not in session:
         if request.method == "POST":
             password = request.form.get("password")
-            if password == "admin123":  # Replace with your actual password
+            if password == "admin123":
                 session["authenticated"] = True
             else:
                 flash("Incorrect password. Please try again.")
@@ -343,60 +265,54 @@ def results():
 
     responses = Response.query.filter_by(completed=True).all()
     participants = set(response.participant_id for response in responses)
+
+    # Compute additional information
     total_responses = len(responses)
-    total_participants = len(participants)
+    unique_participants = len(participants)
+    similarity_scores = [response.similarity_score for response in responses]
+    average_similarity = sum(similarity_scores) / len(similarity_scores)
 
-    version_counts = {1: 0, 2: 0, 3: 0, 4: 0}
-    total_similarity_score = 0
-    version_similarity_sums = {1: 0, 2: 0, 3: 0, 4: 0}
+    from statistics import median
 
-    all_similarity_scores = []
+    median_similarity = median(similarity_scores)
+
+    # Version and participant-specific data
+    version_counts = {i: 0 for i in range(1, 11)}  # Defaults to 0 for 1-10
+    version_average_similarity = {i: [] for i in range(1, 11)}
 
     for response in responses:
         version_counts[response.version] += 1
-        total_similarity_score += response.similarity_score
-        version_similarity_sums[response.version] += response.similarity_score
-        all_similarity_scores.append(response.similarity_score)
+        version_average_similarity[response.version].append(response.similarity_score)
 
-    average_similarity = (
-        total_similarity_score / total_responses if total_responses else 0
-    )
+    for version in version_average_similarity:
+        scores = version_average_similarity[version]
+        version_average_similarity[version] = sum(scores) / len(scores) if scores else 0
 
-    # Calculate median similarity score
-    median_similarity = calculate_median_similarity()
-
-    # Calculate average similarity per version
-    version_average_similarity = {
-        version: (
-            version_similarity_sums[version] / version_counts[version]
-            if version_counts[version] > 0
-            else 0
-        )
-        for version in version_counts
-    }
-
+    # Participant data for table
     participant_data = []
     for participant in participants:
         participant_responses = [
-            response for response in responses if response.participant_id == participant
+            r for r in responses if r.participant_id == participant
         ]
-        participant_scores = [r.similarity_score for r in participant_responses]
-        participant_avg = sum(participant_scores) / len(participant_scores)
+        avg_score = sum(r.similarity_score for r in participant_responses) / len(
+            participant_responses
+        )
         participant_data.append(
             {
                 "id": participant,
                 "version": (
                     participant_responses[0].version if participant_responses else None
                 ),
-                "average_score": round(participant_avg, 2),
+                "average_score": avg_score,
+                "responses": participant_responses,  # Include all responses from this participant
             }
         )
 
     return render_template(
         "results.html",
         total_responses=total_responses,
-        total_participants=total_participants,
-        average_similarity=round(average_similarity, 2),
+        total_participants=unique_participants,
+        average_similarity=average_similarity,
         median_similarity=median_similarity,
         version_counts=version_counts,
         version_average_similarity=version_average_similarity,
@@ -404,30 +320,32 @@ def results():
     )
 
 
-@app.route("/download_results")
-def download_results():
-    responses = Response.query.filter_by(completed=True).all()
-
-    data = {
-        "Participant ID": [response.participant_id for response in responses],
-        "Version": [response.version for response in responses],
-        "Image Index": [response.image_index for response in responses],
-        "Similarity Score": [response.similarity_score for response in responses],
-    }
+def export_to_excel(filename):
+    responses = Response.query.all()
+    data = []
+    for response in responses:
+        data.append(
+            {
+                "Participant ID": response.participant_id,
+                "Consent ID": response.consent_id,
+                "Batch Code": response.batch_code,
+                "Version": response.version,
+                "Image ID": response.photo_id,
+                "Image Index": response.image_index,
+                "Similarity Score": response.similarity_score,
+                "Completed": response.completed,
+            }
+        )
 
     df = pd.DataFrame(data)
+    df.to_excel(filename, index=False)
 
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name="Survey Results")
 
-    output.seek(0)
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name="survey_results.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+@app.route("/download_results", methods=["GET"])
+def download_results():
+    filename = "survey_results.xlsx"
+    export_to_excel(filename)
+    return send_file(filename, as_attachment=True)
 
 
 @app.route("/exit")
