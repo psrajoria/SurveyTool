@@ -246,8 +246,61 @@ def generate_unique_codes(batch_number):
 #     return final_selection
 
 
+# def assign_photos(version, comparison_data):
+#     """Assign photos to a survey session, ensuring unique batches per version."""
+
+#     # First 10 photos are fixed
+#     fixed_photos = comparison_data[:10]
+#     varying_photos = comparison_data[10:]  # Remaining photos to be batched
+
+#     # Ensure only full batches of 10 are used
+#     num_batches = len(varying_photos) // 10
+#     varying_photos = varying_photos[: num_batches * 10]
+
+#     # Create batches
+#     batch_list = [varying_photos[i : i + 10] for i in range(0, len(varying_photos), 10)]
+
+#     # Assign a batch number and codes
+#     batch_number = version
+#     hex_code, ten_digit_code = generate_unique_codes(batch_number)
+
+#     # Tracker for usage count
+#     usage_key = f"{batch_number}-{version}"
+#     if usage_key not in usage_tracker:
+#         usage_tracker[usage_key] = 0
+#     if usage_tracker[usage_key] >= 10:
+#         raise ValueError(
+#             "This batch and version combination has been used 10 times and is no longer available."
+#         )
+
+#     # Increment usage count for this combination
+#     usage_tracker[usage_key] += 1
+
+#     # Shuffle the batches based on version (maintain order for version 1)
+#     if version in range(2, 11):
+#         seed = version * 101
+#         random.seed(seed)
+#         random.shuffle(batch_list)
+
+#     # Select the appropriate batch (ensure no overlap and sequential)
+#     current_batch = batch_list[version - 1]
+
+#     # Combine fixed photos with the selected batch of 10 varying photos
+#     final_selection = fixed_photos + current_batch
+
+#     # Assign codes to the final set of photos
+#     for photo in final_selection:
+#         photo["batch_code"] = hex_code
+#         photo["unique_code"] = ten_digit_code
+
+#     # Store the completion code for session use
+#     session["completion_code"] = ten_digit_code
+
+#     return final_selection
+
+
 def assign_photos(version, comparison_data):
-    """Assign photos to a survey session, ensuring unique batches per version."""
+    """Assign photos to a survey session, ensuring a random batch is selected."""
 
     # First 10 photos are fixed
     fixed_photos = comparison_data[:10]
@@ -276,16 +329,16 @@ def assign_photos(version, comparison_data):
     # Increment usage count for this combination
     usage_tracker[usage_key] += 1
 
-    # Shuffle the batches based on version (maintain order for version 1)
-    if version in range(2, 11):
+    # Shuffle the batches based on version, ensuring v1 selects sequentially
+    if version == 1:
+        current_batch = batch_list[0]  # Maintain order for version 1
+    else:
         seed = version * 101
         random.seed(seed)
         random.shuffle(batch_list)
+        current_batch = random.choice(batch_list)  # Select a random batch
 
-    # Select the appropriate batch (ensure no overlap and sequential)
-    current_batch = batch_list[version - 1]
-
-    # Combine fixed photos with the selected batch of 10 varying photos
+    # Combine fixed photos with the selected random batch of 10 photos
     final_selection = fixed_photos + current_batch
 
     # Assign codes to the final set of photos
