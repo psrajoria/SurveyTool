@@ -9,6 +9,8 @@ from flask import (
     send_file,
 )
 import json
+from flask_migrate import Migrate
+
 from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
 import random
@@ -41,6 +43,9 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///responses.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+
+migrate = Migrate(app, db)
+
 PHOTO_SETS_FILENAME = "data/photo_sets.json"
 
 # from models import Response
@@ -158,6 +163,17 @@ class Response(db.Model):
     completion_code = db.Column(
         db.String(10), nullable=True
     )  # New column for completion code
+    mturk_id = db.Column(
+        db.String(100), nullable=True
+    )  # New column for Worker MTurk ID
+
+
+class FeedbackResponse(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    participant_id = db.Column(db.String(100), nullable=False)
+    consent_id = db.Column(db.String(100), nullable=False)
+    features_considered = db.Column(db.Text, nullable=False)
+    improvement_suggestions = db.Column(db.Text, nullable=True)
 
 
 @app.route("/", methods=["GET"])
@@ -195,6 +211,11 @@ def give_consent():
     else:
         flash("Please select an option to proceed.")
         return redirect(url_for("consent"))
+
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
 
 
 @app.route("/index", methods=["GET", "POST"])
@@ -312,12 +333,14 @@ def thankyou():
 
     if request.method == "POST":
         entered_code = request.form.get("completion_code")
+        mturk_id = request.form.get("mturk_id")
 
         if entered_code == completion_code:
             participant_id = session.get("participant_id")
 
             # Store the entered completion code in session (or DB if required)
             session["entered_completion_code"] = entered_code
+            session["mturk_id"] = mturk_id
 
             # Mark survey responses as completed
             responses = Response.query.filter_by(
@@ -325,6 +348,8 @@ def thankyou():
             ).all()
             for response in responses:
                 response.completed = True
+                response.completion_code = entered_code
+                response.mturk_id = mturk_id
             db.session.commit()
 
             # Mark the photo set as used
@@ -443,9 +468,11 @@ def export_to_excel(filename):
                 "Image Index": response.image_index,
                 "Similarity Score": response.similarity_score,
                 "Completed": response.completed,
-                "Completion Code": session.get(
-                    "entered_completion_code", "N/A"
-                ),  # Store completion code
+                # "Completion Code": session.get(
+                #     "entered_completion_code", "N/A"
+                # ),  # Store completion code\
+                "Completion Code": response.completion_code,
+                "MTurk ID": response.mturk_id,
             }
         )
 
@@ -481,6 +508,6 @@ def calculate_median_similarity():
 
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
+    # with app.app_context():
+    #     db.create_all()
     app.run(debug=False)
