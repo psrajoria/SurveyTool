@@ -68,7 +68,8 @@ def ensure_step_access(step_name):
             required_steps = {
                 "question": "consent_given",  # Can access 'question' if 'consent_given' in session
                 "survey": "question_answered",  # Can access 'survey' if 'question_answered' in session
-                "thankyou": "survey_completed",  # Can access 'thankyou' if 'survey_completed' in session
+                "feedback": "survey_completed",  # Can access 'feedback' if 'survey_completed' in session
+                "thankyou": "feedback_given",  # Can access 'thankyou' if 'feedback_given' in session
                 "thankyou_complete": "completion_code_entered",  # Can access 'thankyou_complete' if 'completion_code_entered' in session
             }
 
@@ -166,6 +167,7 @@ class Response(db.Model):
     mturk_id = db.Column(
         db.String(100), nullable=True
     )  # New column for Worker MTurk ID
+    image_displayed = db.Column(db.Boolean, default=True, nullable=False)  # New column
 
 
 class FeedbackResponse(db.Model):
@@ -270,7 +272,9 @@ def survey():
     consent_id = session.get("consent_id")
 
     if request.method == "POST":
+
         similarity_score = request.form.get("similarity_score")
+        image_not_displayed = request.form.get("imageNotDisplayed") is not None
 
         # Save the response
         participant_id = session.get("participant_id")
@@ -290,6 +294,7 @@ def survey():
             similarity_score=float(similarity_score),
             batch_code=batch_code,
             completed=False,  # Initial state is not completed
+            image_displayed=not image_not_displayed,  # Set based on checkbox
         )
 
         db.session.add(response)
@@ -299,8 +304,12 @@ def survey():
         session["current_image"] = current_image
 
         if current_image >= len(photos):
+            print(f"Current image index: {current_image}, Total images: {len(photos)}")
+            print("Survey completed.")
             session["survey_completed"] = True
-            return redirect(url_for("thankyou"))
+            print(session["survey_completed"])
+            session.modified = True
+            return redirect(url_for("feedback"))
         else:
             return redirect(url_for("survey"))
 
@@ -321,9 +330,38 @@ def survey():
     )
 
 
+@app.route("/feedback", methods=["GET", "POST"])
+@ensure_step_access("feedback")
+def feedback():
+    if request.method == "POST":
+        features_considered = request.form.getlist("features_considered")
+        improvement_suggestions = request.form.get("improvement_suggestions")
+
+        feedback = FeedbackResponse(
+            participant_id=session.get("participant_id"),
+            consent_id=session.get("consent_id"),
+            features_considered=",".join(features_considered),
+            improvement_suggestions=improvement_suggestions,
+        )
+
+        db.session.add(feedback)
+        db.session.commit()
+
+        # Mark feedback as given
+        session["feedback_given"] = True
+
+        return redirect(url_for("thankyou"))
+
+    return render_template("feedback.html")
+
+
 @app.route("/thankyou", methods=["GET", "POST"])
 def thankyou():
-    if "survey_completed" not in session:
+    # if "survey_completed" not in session:
+    # if "survey_completed" not in session or "feedback_given" not in session:
+    if not session.get("survey_completed") or not session.get("feedback_given"):
+        flash("Please complete the survey and feedback to proceed.")
+
         return redirect(url_for("consent"))
     completion_check = check_survey_completion()
     if completion_check:
@@ -454,25 +492,70 @@ def results():
     )
 
 
+# def export_to_excel(filename):
+#     responses = Response.query.all()
+#     data = []
+#     for response in responses:
+#         data.append(
+#             {
+#                 "Participant ID": response.participant_id,
+#                 "Consent ID": response.consent_id,
+#                 "Batch Code": response.batch_code,
+#                 "Version": response.version,
+#                 "Image ID": response.photo_id,
+#                 "Image Index": response.image_index,
+#                 "Similarity Score": response.similarity_score,
+#                 "Completed": response.completed,
+#                 # "Completion Code": session.get(
+#                 #     "entered_completion_code", "N/A"
+#                 # ),  # Store completion code\
+#                 "Completion Code": response.completion_code,
+#                 "MTurk ID": response.mturk_id,
+#             }
+#         )
+
+#     df = pd.DataFrame(data)
+#     df.to_excel(filename, index=False)
+
+
 def export_to_excel(filename):
     responses = Response.query.all()
+    feedbacks = FeedbackResponse.query.all()
+
+    # Create a dictionary to map feedback to participant and consent IDs
+    feedback_map = {}
+    for feedback in feedbacks:
+        key = (feedback.participant_id, feedback.consent_id)
+        feedback_map[key] = {
+            "Features Considered": feedback.features_considered,
+            "Improvement Suggestions": feedback.improvement_suggestions,
+        }
+
     data = []
     for response in responses:
+        participant_id = response.participant_id
+        consent_id = response.consent_id
+
+        feedback_info = feedback_map.get(
+            (participant_id, consent_id),
+            {"Features Considered": "N/A", "Improvement Suggestions": "N/A"},
+        )
+
         data.append(
             {
-                "Participant ID": response.participant_id,
-                "Consent ID": response.consent_id,
+                "Participant ID": participant_id,
+                "Consent ID": consent_id,
                 "Batch Code": response.batch_code,
                 "Version": response.version,
                 "Image ID": response.photo_id,
                 "Image Index": response.image_index,
                 "Similarity Score": response.similarity_score,
+                "Image Displayed": response.image_displayed,
                 "Completed": response.completed,
-                # "Completion Code": session.get(
-                #     "entered_completion_code", "N/A"
-                # ),  # Store completion code\
                 "Completion Code": response.completion_code,
                 "MTurk ID": response.mturk_id,
+                "Features Considered": feedback_info["Features Considered"],
+                "Improvement Suggestions": feedback_info["Improvement Suggestions"],
             }
         )
 

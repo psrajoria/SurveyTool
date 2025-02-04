@@ -129,7 +129,7 @@
     "completion_code": "9ae857567f",
     "version": 1,
     "batch_number": 1,
-    "used": false
+    "used": true
   },
   {
     "fixed_photos": [
@@ -393,7 +393,7 @@
     "completion_code": "9627347c1d",
     "version": 1,
     "batch_number": 3,
-    "used": false
+    "used": true
   },
   {
     "fixed_photos": [
@@ -1237,7 +1237,7 @@
     "completion_code": "0db23e248f",
     "version": 2,
     "batch_number": 5,
-    "used": false
+    "used": true
   },
   {
     "fixed_photos": [
@@ -1857,7 +1857,7 @@
     "completion_code": "23efcd519d",
     "version": 3,
     "batch_number": 5,
-    "used": false
+    "used": true
   },
   {
     "fixed_photos": [
@@ -2385,7 +2385,7 @@
     "completion_code": "2756f31a8d",
     "version": 4,
     "batch_number": 4,
-    "used": false
+    "used": true
   },
   {
     "fixed_photos": [

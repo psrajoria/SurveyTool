@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -25,6 +25,108 @@
 
         <button type="submit">Submit Feedback</button>
     </form>
+</body>
+
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey Feedback</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 900px;
+            margin: auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-check {
+            margin-bottom: 20px;
+        }
+
+        .other-textbox {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body class="bg-light">
+    <div class="container">
+        <h2>Feedback Questions</h2>
+        <form id="feedbackForm" method="post">
+            <p>1. Which features or characteristics of a person did you usually consider when making the comparisons?
+                You
+                can select multiple options from the list below.</p>
+            <div class="form-check">
+                <label><input class="form-check-input" type="checkbox" name="features_considered"
+                        value="Facial features"> Facial features (e.g., face shape, eyes, nose)</label>
+            </div>
+            <div class="form-check">
+                <label><input class="form-check-input" type="checkbox" name="features_considered" value="Hair">
+                    Hair</label>
+            </div>
+            <div class="form-check">
+                <label><input class="form-check-input" type="checkbox" name="features_considered" value="Age">
+                    Age</label>
+            </div>
+            <div class="form-check">
+                <label><input class="form-check-input" type="checkbox" name="features_considered" value="Ethnicity">
+                    Ethnicity</label>
+            </div>
+            <div class="form-check">
+                <label><input class="form-check-input" type="checkbox" name="features_considered" value="Outfit style">
+                    Outfit style</label>
+            </div>
+            <div class="form-check">
+                <label><input class="form-check-input" type="checkbox" value="Other" id="otherCheckbox"> Other (please
+                    specify)</label>
+            </div>
+            <textarea class="form-control other-textbox" id="otherText"
+                placeholder="Please specify other features"></textarea>
+
+            <p class="mt-4">2. What are your suggestions to improve the survey in general? (for example, instruction,
+                rating scale,
+                survey layout)</p>
+            <textarea class="form-control" name="improvement_suggestions"></textarea><br>
+
+            <button type="submit" class="btn btn-primary">Submit Feedback</button>
+        </form>
+    </div>
+
+    <script>
+        // JavaScript to toggle display of 'Other' text box
+        document.getElementById('otherCheckbox').addEventListener('change', function () {
+            var otherText = document.getElementById('otherText');
+            if (this.checked) {
+                otherText.style.display = 'block';
+            } else {
+                otherText.style.display = 'none';
+            }
+        });
+
+        document.getElementById('feedbackForm').addEventListener('submit', function (event) {
+            // Append "Other" value to features_considered if "Other" is checked
+            if (document.getElementById('otherCheckbox').checked) {
+                var otherValue = document.getElementById('otherText').value.trim();
+                if (otherValue) {
+                    var otherInput = document.createElement('input');
+                    otherInput.type = 'hidden';
+                    otherInput.name = 'features_considered';
+                    otherInput.value = otherValue;
+                    this.appendChild(otherInput);
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>
