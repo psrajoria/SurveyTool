@@ -97,16 +97,29 @@
                         </div>
                         {% endif %}
                         <p class="lead">
-                            In this survey, you will evaluate the facial similarity between pairs of individuals.
-                            There are 50 comparisons to complete, each corresponding to a survey question. All
-                            questions must be answered to proceed. Once you finish the comparisons, you will receive
-                            a completion code.
+                        <h4>Overview</h4>
+
+                        In this survey, you will evaluate facial similarity between pairs of individuals across
+                        <b>60</b>
+                        comparisons, each corresponding to a survey question. After completing the comparisons, you
+                        will answer two feedback questions about your experience. Once all questions are finished,
+                        you will receive a completion code. Use this code to confirm your survey completion on
+                        MTurk.
+                        </p>
+
+                        <p>
+                        <h4>Your Payment</h4>
+                        The estimated time to complete this survey is <b>30 minutes </b>. You are guaranteed to receive
+                        <b>$3</b>
+                        within <b>48 hours</b> after completing this survey.
+
+
                         </p>
                         <hr>
                         <form method="POST" action="/index" id="questionForm">
                             <div class="mb-4">
                                 <label for="understandingQuestion" class="form-label fw-bold">
-                                    1. Understanding Question:
+                                    Understanding Question:
                                 </label>
                                 <p class="mb-2">
                                     Your answer needs to be correct to proceed to the next question. Which of the
@@ -116,16 +129,19 @@
                                     <input class="form-check-input" type="radio" name="answer" value="incorrect"
                                         id="option1">
                                     <label class="form-check-label" for="option1">
-                                        After completing all comparison tasks in this survey, I will receive $XX within
-                                        YY hours WITHOUT having to confirm my survey completion on MTurk.
+                                        After completing all comparison tasks in this survey, I will receive $3
+                                        within
+                                        48 hours WITHOUT having to confirm my survey completion on MTurk.
                                     </label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="answer" value="correct"
                                         id="option2">
                                     <label class="form-check-label" for="option2">
-                                        After completing all comparison tasks in this survey, I will receive $XX within
-                                        YY hours. For this payment, I need to enter on MTurk a survey completion code
+                                        After completing all comparison tasks in this survey, I will receive $3
+                                        within
+                                        48 hours. For this payment, I need to enter on MTurk a survey completion
+                                        code
                                         that I will receive at the end of this survey.
                                     </label>
                                 </div>
@@ -135,9 +151,11 @@
                                 </div>
                                 {% endif %}
                             </div>
+
+                            <p>Click <b>Next</b> to view the instruction on the comparison task.</p>
                             <div class="text-center">
                                 <button type="submit" class="btn btn-primary btn-lg" {% if error %}disabled{% endif %}>
-                                    Proceed
+                                    Next
                                 </button>
                             </div>
                         </form>

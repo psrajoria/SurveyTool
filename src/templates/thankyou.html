@@ -108,13 +108,23 @@
         <h1 class="display-4">Thank You!</h1>
         <p>Your completion code is: <strong>{{ completion_code }}</strong></p>
         <form method="POST">
+
+            <div class="alert alert-info">
+                <p>Thank you for participating in this survey. To confirm your survey completion, enter the code below
+                    and your MTurk worker ID in the text boxes. Please use the given code to confirm your survey
+                    completion on MTurk. Be sure to enter it correctly!</p>
+            </div>
+
             <div class="mb-3">
-                <label for="completion_code" class="form-label">Enter Completion Code to Finish Survey</label>
-                <input type="text" name="completion_code" id="completion_code" class="form-control" required>
+                <label for="completion_code" class="form-label">Enter this code in the text box below and on MTurk to
+                    confirm your survey completion</label>
+                <input type="text" name="completion_code" id="completion_code" class="form-control"
+                    placeholder="Please enter the code here" required>
             </div>
             <div class="mb-3">
-                <label for="mturk_id" class="form-label">Enter Your Worker MTurk ID</label>
-                <input type="text" name="mturk_id" id="mturk_id" class="form-control" required>
+                <label for="mturk_id" class="form-label">Enter your MTurk worker ID in the text box below</label>
+                <input type="text" name="mturk_id" id="mturk_id" placeholder="Please enter your worker MTurk ID here"
+                    class="form-control" required>
             </div>
             <button type="submit" class="btn btn-primary">Submit Code</button>
         </form>
