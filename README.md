@@ -1,24 +1,22 @@
-# README.md
-
-## Facial Similarity Survey Web Application
+# 📊 Facial Similarity Survey Web Application
 
 Welcome to the Facial Similarity Survey Web Application! This app allows users to evaluate facial similarity between pairs of individuals across a series of 60 comparisons. Each comparison represents a survey question designed to gather insightful data about facial recognition and subjective evaluations of similarity. After finishing the comparisons, users will provide feedback on their experience and receive a completion code to confirm their survey completion on Amazon Mechanical Turk (MTurk).
 
-### Prerequisites
+## 📋 Prerequisites
 
 Before running the application, ensure you have the following:
 
-- **Python 3.12.4**: Make sure you have Python installed. You can download it from the [official Python website](https://www.python.org/downloads/).
+- **Python 3.12.4**: Make sure you have Python installed. You can download it from the [official Python website](https://www.python.org/downloads/release/python-3124/).
 
-### Installation Instructions
+## 🚀 Installation Instructions
 
 Follow the instructions below to set up and run the application on your machine:
 
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/yourusername/yourrepository.git
-   cd yourrepository
+   git clone https://github.com/psrajoria/SurveyTool.git
+   cd SurveyTool
    ```
 
 2. **Create a virtual environment**:
@@ -68,15 +66,15 @@ Follow the instructions below to set up and run the application on your machine:
    python app.py
    ```
 
-### Usage
+## 🛠️ Usage
 
 Once the application is running, you will be able to participate in the facial similarity survey. The interface will guide you through each comparison and feedback questions.
 
-### Completion
+## ✅ Completion
 
 After answering all survey questions and providing feedback, you will receive a completion code. Please ensure to save this code as it will confirm your survey completion on MTurk.
 
-### Troubleshooting
+## ❗ Troubleshooting
 
 If you encounter any issues during the installation or running the app, please check the following:
 
@@ -84,10 +82,8 @@ If you encounter any issues during the installation or running the app, please c
 - Ensure that you are in the correct directory when running commands.
 - If you see any errors regarding missing packages, double-check that you have installed the requirements from `requirements.txt`.
 
-### Support
-
-For any further assistance, feel free to open an issue in the repository or contact the project maintainer.
-
 ---
 
-Thank you for helping us evaluate facial similarity through your participation in this survey project!
+## 📞 Support
+
+For any further assistance, feel free to open an issue in the repository or contact the project maintainer.
