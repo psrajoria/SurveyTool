@@ -17,6 +17,14 @@
             position: relative;
         }
 
+        .total-image-display {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 0.7rem;
+            color: #555;
+        }
+
         .consent-id-display {
             position: absolute;
             top: 10px;
@@ -119,6 +127,9 @@
         <!-- <div class="container"> -->
         <div class="consent-id-display">
             Consent ID: {{ consent_id }}
+        </div>
+        <div class="total-image-display">
+            Comparison {{ current_image }} of {{ total_images }}
         </div>
 
         <!-- <h2 class="text-center mb-4">Image Comparison {{ current_image }} of {{ total_images }}</h2> -->
