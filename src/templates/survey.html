@@ -155,7 +155,9 @@
             </label>
         </div>
 
-        <form method="POST" action="/survey" onsubmit="return validateForm();">
+        <!-- <form method="POST" action="/survey" onsubmit="return validateForm();"> -->
+        <form method="POST" action="{{ url_for('survey', photo_id=current_photo['id']) }}"
+            onsubmit="return validateForm();">
             <div class="slider-container">
                 <span>Least Similar (0)</span>
 

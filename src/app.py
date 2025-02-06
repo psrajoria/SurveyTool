@@ -271,7 +271,12 @@ def sample():
     # Handle the POST request to move to the survey
     if request.method == "POST":
         session["sample_read"] = True
-        return redirect(url_for("survey"))
+        # Redirect to the first photo in the survey
+        if "photos" in session and len(session["photos"]) > 0:
+            first_photo_id = session["photos"][0][
+                "id"
+            ]  # Get the hex ID of the first photo
+            return redirect(url_for("survey", photo_id=first_photo_id))
     main_image = url_for("static", filename="images/main.png")
     sample_image = "https://images.crunchbase.com/image/upload/itjrb3ayy0rgopgi53st.png"
 
@@ -280,75 +285,151 @@ def sample():
     )
 
 
-@app.route("/survey", methods=["GET", "POST"])
+# @app.route("/survey", methods=["GET", "POST"])
+# @ensure_step_access("survey")
+# def survey():
+#     if "sample_read" not in session:
+#         return redirect(url_for("consent"))
+
+#     photos = session.get("photos", [])
+#     current_image = session.get("current_image", 0)
+#     consent_id = session.get("consent_id")
+
+#     if request.method == "POST":
+
+#         similarity_score = request.form.get("similarity_score")
+#         image_not_displayed = request.form.get("imageNotDisplayed") == "1"
+#         image_displayed = (
+#             not image_not_displayed
+#         )  # True by default, False if checkbox is checked
+
+#         # Save the response
+#         participant_id = session.get("participant_id")
+#         version = session.get("version")
+#         # batch_code = photos[0]["batch_code"]  # Assuming first photo has batch code
+#         batch_code = session.get("batch_code")
+#         photo_id = photos[current_image][
+#             "id"
+#         ]  # Retrieve photo ID for the current image
+
+#         response = Response(
+#             participant_id=participant_id,
+#             consent_id=consent_id,
+#             version=version,
+#             image_index=current_image,
+#             photo_id=photo_id,
+#             similarity_score=float(similarity_score),
+#             batch_code=batch_code,
+#             completed=False,  # Initial state is not completed
+#             image_displayed=image_displayed,  # Set based on checkbox
+#         )
+
+#         db.session.add(response)
+#         db.session.commit()
+
+#         current_image += 1
+#         session["current_image"] = current_image
+
+#         if current_image >= len(photos):
+#             print(f"Current image index: {current_image}, Total images: {len(photos)}")
+#             print("Survey completed.")
+#             session["survey_completed"] = True
+#             print(session["survey_completed"])
+#             session.modified = True
+#             return redirect(url_for("feedback"))
+#         else:
+#             return redirect(url_for("survey"))
+
+#     try:
+#         compare_image = photos[current_image]["url"]
+#     except IndexError:
+#         return redirect(url_for("thankyou"))
+
+#     main_image = url_for("static", filename="images/main.png")
+
+#     return render_template(
+#         "survey.html",
+#         main_image=main_image,
+#         compare_image=compare_image,
+#         current_image=current_image + 1,
+#         total_images=len(photos),
+#         consent_id=consent_id,
+#     )
+
+
+@app.route("/survey/<photo_id>", methods=["GET", "POST"])
 @ensure_step_access("survey")
-def survey():
+def survey(photo_id):
     if "sample_read" not in session:
         return redirect(url_for("consent"))
 
     photos = session.get("photos", [])
-    current_image = session.get("current_image", 0)
+
+    # Try to find the index of the current photo in the photos list
+    current_image_index = next(
+        (index for index, photo in enumerate(photos) if photo["id"] == photo_id), None
+    )
+
+    # Check if the current_image_index is valid
+    if current_image_index is None:
+        print(
+            f"Error: No photo found with ID {photo_id}. Redirecting to thank you page."
+        )
+        return redirect(url_for("thankyou"))  # If the photo_id is invalid
+
     consent_id = session.get("consent_id")
 
-    if request.method == "POST":
+    # Safely retrieve the current photo since current_image_index is valid
+    current_photo = photos[current_image_index]
 
+    if request.method == "POST":
         similarity_score = request.form.get("similarity_score")
         image_not_displayed = request.form.get("imageNotDisplayed") == "1"
-        image_displayed = (
-            not image_not_displayed
-        )  # True by default, False if checkbox is checked
+        image_displayed = not image_not_displayed
 
-        # Save the response
+        # Save response logic here
         participant_id = session.get("participant_id")
         version = session.get("version")
-        # batch_code = photos[0]["batch_code"]  # Assuming first photo has batch code
         batch_code = session.get("batch_code")
-        photo_id = photos[current_image][
-            "id"
-        ]  # Retrieve photo ID for the current image
 
         response = Response(
             participant_id=participant_id,
             consent_id=consent_id,
             version=version,
-            image_index=current_image,
-            photo_id=photo_id,
+            image_index=current_image_index,
+            photo_id=current_photo["id"],
             similarity_score=float(similarity_score),
             batch_code=batch_code,
-            completed=False,  # Initial state is not completed
-            image_displayed=image_displayed,  # Set based on checkbox
+            completed=False,
+            image_displayed=image_displayed,
         )
 
         db.session.add(response)
         db.session.commit()
 
-        current_image += 1
-        session["current_image"] = current_image
+        # Move to the next photo
+        next_image_index = current_image_index + 1
 
-        if current_image >= len(photos):
-            print(f"Current image index: {current_image}, Total images: {len(photos)}")
-            print("Survey completed.")
+        if next_image_index >= len(photos):
             session["survey_completed"] = True
-            print(session["survey_completed"])
-            session.modified = True
             return redirect(url_for("feedback"))
         else:
-            return redirect(url_for("survey"))
+            next_photo_id = photos[next_image_index]["id"]
+            print(f"Redirecting to next photo with ID: {next_photo_id}")  # Debug print
+            return redirect(url_for("survey", photo_id=next_photo_id))
 
-    try:
-        compare_image = photos[current_image]["url"]
-    except IndexError:
-        return redirect(url_for("thankyou"))
-
+    # Render the survey for the current photo
+    compare_image = current_photo["url"]
     main_image = url_for("static", filename="images/main.png")
 
     return render_template(
         "survey.html",
         main_image=main_image,
         compare_image=compare_image,
-        current_image=current_image + 1,
+        current_image=current_image_index + 1,
         total_images=len(photos),
         consent_id=consent_id,
+        current_photo=current_photo,  # Pass the current photo as well
     )
 
 
@@ -612,8 +693,8 @@ def calculate_median_similarity():
     return 0
 
 
-#if __name__ == "__main__":
-    # with app.app_context():
-    #     db.create_all()
-   # app.run(debug=False)
+# if __name__ == "__main__":
+# with app.app_context():
+#     db.create_all()
+# app.run(debug=False)
 #    app.run(host="0.0.0.0", port=5000, debug=True)
