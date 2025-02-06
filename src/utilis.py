@@ -29,7 +29,7 @@ def get_comparison_data():
 def generate_unique_codes(batch_number, version):
     batch_code = f"{batch_number:02x}"
     unique_input = f"{batch_number}{version}{random.random()}"
-    completion_code = hashlib.sha1(unique_input.encode()).hexdigest()[:10]
+    completion_code = hashlib.sha1(unique_input.encode()).hexdigest()[:10].upper()
     return batch_code, batch_code, completion_code
 
 
