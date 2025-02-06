@@ -67,7 +67,8 @@ def ensure_step_access(step_name):
             # a flag is set in the session.
             required_steps = {
                 "question": "consent_given",  # Can access 'question' if 'consent_given' in session
-                "survey": "question_answered",  # Can access 'survey' if 'question_answered' in session
+                "sample": "question_answered",  # Can access 'sample' if 'question_answered' in session
+                "survey": "sample_read",  # Can access 'survey' if 'question_answered' in session
                 "feedback": "survey_completed",  # Can access 'feedback' if 'survey_completed' in session
                 "thankyou": "feedback_given",  # Can access 'thankyou' if 'feedback_given' in session
                 "thankyou_complete": "completion_code_entered",  # Can access 'thankyou_complete' if 'completion_code_entered' in session
@@ -254,17 +255,35 @@ def index():
             try:
                 assign_photos()
                 # print(f"The current photos assigned are", assign_photos())
-                return redirect(url_for("survey"))
+                return redirect(url_for("sample"))
             except ValueError as e:
                 error = str(e)
 
     return render_template("index.html", error=error)
 
 
+@app.route("/sample", methods=["GET", "POST"])
+@ensure_step_access("sample")
+def sample():
+    if "question_answered" not in session:
+        return redirect(url_for("consent"))
+
+    # Handle the POST request to move to the survey
+    if request.method == "POST":
+        session["sample_read"] = True
+        return redirect(url_for("survey"))
+    main_image = url_for("static", filename="images/main.png")
+    sample_image = "https://images.crunchbase.com/image/upload/itjrb3ayy0rgopgi53st.png"
+
+    return render_template(
+        "sample.html", main_image=main_image, sample_image=sample_image
+    )
+
+
 @app.route("/survey", methods=["GET", "POST"])
 @ensure_step_access("survey")
 def survey():
-    if "question_answered" not in session:
+    if "sample_read" not in session:
         return redirect(url_for("consent"))
 
     photos = session.get("photos", [])

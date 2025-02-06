@@ -39,7 +39,7 @@ def generate_photo_sets():
     fixed_photos = comparison_data[:10]
     varying_photos = comparison_data[10:]
 
-    batch_size = 20
+    batch_size = 50
     num_batches = (len(varying_photos) + batch_size - 1) // batch_size
     version_count = 4
 
