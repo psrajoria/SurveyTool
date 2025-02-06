@@ -168,7 +168,7 @@ class Response(db.Model):
     mturk_id = db.Column(
         db.String(100), nullable=True
     )  # New column for Worker MTurk ID
-    image_displayed = db.Column(db.Boolean, default=True, nullable=False)  # New column
+    image_displayed = db.Column(db.Boolean, default=False, nullable=False)  # New column
 
 
 class FeedbackResponse(db.Model):
@@ -293,7 +293,10 @@ def survey():
     if request.method == "POST":
 
         similarity_score = request.form.get("similarity_score")
-        image_not_displayed = request.form.get("imageNotDisplayed") is not None
+        image_not_displayed = request.form.get("imageNotDisplayed") == "1"
+        image_displayed = (
+            not image_not_displayed
+        )  # True by default, False if checkbox is checked
 
         # Save the response
         participant_id = session.get("participant_id")
@@ -313,7 +316,7 @@ def survey():
             similarity_score=float(similarity_score),
             batch_code=batch_code,
             completed=False,  # Initial state is not completed
-            image_displayed=not image_not_displayed,  # Set based on checkbox
+            image_displayed=image_displayed,  # Set based on checkbox
         )
 
         db.session.add(response)

@@ -41,7 +41,7 @@ def generate_photo_sets():
 
     batch_size = 50
     num_batches = (len(varying_photos) + batch_size - 1) // batch_size
-    version_count = 4
+    version_count = 10
 
     photo_sets = []
 
