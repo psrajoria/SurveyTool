@@ -1,3 +1,4 @@
+# Calling the necessary libraries
 from flask import (
     Flask,
     render_template,
@@ -10,35 +11,28 @@ from flask import (
 )
 import json
 from flask_migrate import Migrate
-
 from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
 import random
 import uuid
-import io
 from datetime import datetime
+
+# Import the functions from utilis.py
 from utilis import (
     get_client_ip,
     get_user_agent,
     get_comparison_data,
     load_or_create_photo_sets,
+    ensure_step_access,
+    generate_unique_participant_id,
 )
-import hashlib
 
-
-def generate_unique_participant_id():
-    ip = get_client_ip()
-    user_agent = get_user_agent()
-    unique_string = f"{ip}-{user_agent}"
-    return hashlib.sha256(unique_string.encode()).hexdigest()
-
-
-from functools import wraps
-
-
+# Initialize the Flask app
 app = Flask(__name__)
+# Set the secret key for the app
 app.secret_key = "supersecretkey"
 
+# Set up the database
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///responses.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -48,43 +42,53 @@ migrate = Migrate(app, db)
 
 PHOTO_SETS_FILENAME = "data/photo_sets.json"
 
-# from models import Response
 
 # Global to track photo sets
 photo_sets = load_or_create_photo_sets()
 
 
-def ensure_step_access(step_name):
-    """
-    Decorator to ensure access to certain routes is only allowed
-    if the user has completed prior steps.
-    """
-
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            # Define a sequential requirement. After each step is completed,
-            # a flag is set in the session.
-            required_steps = {
-                "question": "consent_given",  # Can access 'question' if 'consent_given' in session
-                "sample": "question_answered",  # Can access 'sample' if 'question_answered' in session
-                "survey": "sample_read",  # Can access 'survey' if 'question_answered' in session
-                "feedback": "survey_completed",  # Can access 'feedback' if 'survey_completed' in session
-                "thankyou": "feedback_given",  # Can access 'thankyou' if 'feedback_given' in session
-                "thankyou_complete": "completion_code_entered",  # Can access 'thankyou_complete' if 'completion_code_entered' in session
-            }
-
-            required_step = required_steps.get(step_name)
-            if required_step and not session.get(required_step):
-                flash("Please complete the previous steps first.")
-                return redirect(url_for("consent"))
-            return f(*args, **kwargs)
-
-        return decorated_function
-
-    return decorator
+# Models
 
 
+# Define the Response model
+class Response(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    participant_id = db.Column(db.String(100), nullable=False)
+    consent_id = db.Column(db.String(100), nullable=False)
+    version = db.Column(db.Integer, nullable=False)
+    image_index = db.Column(db.Integer, nullable=False)
+    similarity_score = db.Column(db.Float, nullable=False)
+    completed = db.Column(db.Boolean, default=False, nullable=False)
+    batch_code = db.Column(db.String(6), nullable=False)  # Assumes you store this info
+    photo_id = db.Column(db.String(100), nullable=False)  # New column for photo ID
+    completion_code = db.Column(
+        db.String(10), nullable=True
+    )  # New column for completion code
+    mturk_id = db.Column(
+        db.String(100), nullable=True
+    )  # New column for Worker MTurk ID
+    image_displayed = db.Column(db.Boolean, default=True, nullable=False)  # New column
+
+
+# Define the UserConsent model
+class UserConsent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    consent_id = db.Column(db.String(100), unique=True, nullable=False)
+    ip_address = db.Column(db.String(50), nullable=False)
+    user_agent = db.Column(db.String(200), nullable=False)
+    consent_given = db.Column(db.Boolean, default=False, nullable=False)
+
+
+# Define the FeedbackResponse model
+class FeedbackResponse(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    participant_id = db.Column(db.String(100), nullable=False)
+    consent_id = db.Column(db.String(100), nullable=False)
+    features_considered = db.Column(db.Text, nullable=False)
+    improvement_suggestions = db.Column(db.Text, nullable=True)
+
+
+# Find the photo set that has not been used yet
 def assign_photos():
     # Ensure availability of un-used photo sets
     available_photo_sets = [s for s in photo_sets if not s["used"]]
@@ -116,13 +120,8 @@ def assign_photos():
     session["photos"] = fixed_photo_details + current_batch_details
     session["current_image"] = 0
 
-    # Debug output to verify assignment
-    print(f"Assigned batch: {session['batch_code']}, Version: {session['version']}")
-    print(f"Fixed photos assigned: {len(fixed_photo_details)}")
-    print(f"Current batch photos assigned: {len(current_batch_details)}")
-    print(f"Total photos assigned: {len(session['photos'])}")
 
-
+# Check if the survey has already been completed using the consent_id.
 def check_survey_completion():
     """
     Check if the survey has already been completed using the consent_id.
@@ -144,41 +143,72 @@ def check_survey_completion():
     return None
 
 
-class UserConsent(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    consent_id = db.Column(db.String(100), unique=True, nullable=False)
-    ip_address = db.Column(db.String(50), nullable=False)
-    user_agent = db.Column(db.String(200), nullable=False)
-    consent_given = db.Column(db.Boolean, default=False, nullable=False)
+# Calculate median similarity score
+def calculate_median_similarity():
+    similarities = [
+        response.similarity_score
+        for response in Response.query.filter_by(completed=True).all()
+    ]
+    if similarities:
+        sorted_scores = sorted(similarities)
+        mid = len(sorted_scores) // 2
+        if len(sorted_scores) % 2 == 0:
+            return (sorted_scores[mid - 1] + sorted_scores[mid]) / 2.0
+        else:
+            return sorted_scores[mid]
+    return 0
 
 
-class Response(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    participant_id = db.Column(db.String(100), nullable=False)
-    consent_id = db.Column(db.String(100), nullable=False)
-    version = db.Column(db.Integer, nullable=False)
-    image_index = db.Column(db.Integer, nullable=False)
-    similarity_score = db.Column(db.Float, nullable=False)
-    completed = db.Column(db.Boolean, default=False, nullable=False)
-    batch_code = db.Column(db.String(6), nullable=False)  # Assumes you store this info
-    photo_id = db.Column(db.String(100), nullable=False)  # New column for photo ID
-    completion_code = db.Column(
-        db.String(10), nullable=True
-    )  # New column for completion code
-    mturk_id = db.Column(
-        db.String(100), nullable=True
-    )  # New column for Worker MTurk ID
-    image_displayed = db.Column(db.Boolean, default=False, nullable=False)  # New column
+# Export results to Excel
+def export_to_excel(filename):
+    responses = Response.query.all()
+    feedbacks = FeedbackResponse.query.all()
+
+    # Create a dictionary to map feedback to participant and consent IDs
+    feedback_map = {}
+    for feedback in feedbacks:
+        key = (feedback.participant_id, feedback.consent_id)
+        feedback_map[key] = {
+            "Features Considered": feedback.features_considered,
+            "Improvement Suggestions": feedback.improvement_suggestions,
+        }
+
+    data = []
+    for response in responses:
+        participant_id = response.participant_id
+        consent_id = response.consent_id
+
+        feedback_info = feedback_map.get(
+            (participant_id, consent_id),
+            {"Features Considered": "N/A", "Improvement Suggestions": "N/A"},
+        )
+
+        data.append(
+            {
+                "Participant ID": participant_id,
+                "Consent ID": consent_id,
+                "Batch Code": response.batch_code,
+                "Version": response.version,
+                "Image ID": response.photo_id,
+                "Image Index": response.image_index,
+                "Similarity Score": response.similarity_score,
+                "Image Displayed": response.image_displayed,
+                "Completed": response.completed,
+                "Completion Code": response.completion_code,
+                "MTurk ID": response.mturk_id,
+                "Features Considered": feedback_info["Features Considered"],
+                "Improvement Suggestions": feedback_info["Improvement Suggestions"],
+            }
+        )
+
+    df = pd.DataFrame(data)
+    df.to_excel(filename, index=False)
 
 
-class FeedbackResponse(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    participant_id = db.Column(db.String(100), nullable=False)
-    consent_id = db.Column(db.String(100), nullable=False)
-    features_considered = db.Column(db.Text, nullable=False)
-    improvement_suggestions = db.Column(db.Text, nullable=True)
+# Routes to handle the survey process
 
 
+# Landing page
 @app.route("/", methods=["GET"])
 def consent():
     ip = get_client_ip()
@@ -192,6 +222,7 @@ def consent():
     return render_template("consent.html")
 
 
+# Consent page
 @app.route("/give_consent", methods=["POST"])
 def give_consent():
     consent_status = request.form.get("consent")
@@ -216,11 +247,13 @@ def give_consent():
         return redirect(url_for("consent"))
 
 
+# Privacy policy page
 @app.route("/privacy")
 def privacy():
     return render_template("privacy.html")
 
 
+# Index page
 @app.route("/index", methods=["GET", "POST"])
 @ensure_step_access("index")
 def index():
@@ -262,6 +295,7 @@ def index():
     return render_template("index.html", error=error)
 
 
+# Sample page
 @app.route("/sample", methods=["GET", "POST"])
 @ensure_step_access("sample")
 def sample():
@@ -285,78 +319,7 @@ def sample():
     )
 
 
-# @app.route("/survey", methods=["GET", "POST"])
-# @ensure_step_access("survey")
-# def survey():
-#     if "sample_read" not in session:
-#         return redirect(url_for("consent"))
-
-#     photos = session.get("photos", [])
-#     current_image = session.get("current_image", 0)
-#     consent_id = session.get("consent_id")
-
-#     if request.method == "POST":
-
-#         similarity_score = request.form.get("similarity_score")
-#         image_not_displayed = request.form.get("imageNotDisplayed") == "1"
-#         image_displayed = (
-#             not image_not_displayed
-#         )  # True by default, False if checkbox is checked
-
-#         # Save the response
-#         participant_id = session.get("participant_id")
-#         version = session.get("version")
-#         # batch_code = photos[0]["batch_code"]  # Assuming first photo has batch code
-#         batch_code = session.get("batch_code")
-#         photo_id = photos[current_image][
-#             "id"
-#         ]  # Retrieve photo ID for the current image
-
-#         response = Response(
-#             participant_id=participant_id,
-#             consent_id=consent_id,
-#             version=version,
-#             image_index=current_image,
-#             photo_id=photo_id,
-#             similarity_score=float(similarity_score),
-#             batch_code=batch_code,
-#             completed=False,  # Initial state is not completed
-#             image_displayed=image_displayed,  # Set based on checkbox
-#         )
-
-#         db.session.add(response)
-#         db.session.commit()
-
-#         current_image += 1
-#         session["current_image"] = current_image
-
-#         if current_image >= len(photos):
-#             print(f"Current image index: {current_image}, Total images: {len(photos)}")
-#             print("Survey completed.")
-#             session["survey_completed"] = True
-#             print(session["survey_completed"])
-#             session.modified = True
-#             return redirect(url_for("feedback"))
-#         else:
-#             return redirect(url_for("survey"))
-
-#     try:
-#         compare_image = photos[current_image]["url"]
-#     except IndexError:
-#         return redirect(url_for("thankyou"))
-
-#     main_image = url_for("static", filename="images/main.png")
-
-#     return render_template(
-#         "survey.html",
-#         main_image=main_image,
-#         compare_image=compare_image,
-#         current_image=current_image + 1,
-#         total_images=len(photos),
-#         consent_id=consent_id,
-#     )
-
-
+# Survey page
 @app.route("/survey/<photo_id>", methods=["GET", "POST"])
 @ensure_step_access("survey")
 def survey(photo_id):
@@ -383,9 +346,21 @@ def survey(photo_id):
     current_photo = photos[current_image_index]
 
     if request.method == "POST":
+        # print("Received POST request for survey page.")
+        # print(request.form.to_dict())
+        # print("Checking")
+        # print(request.form)  # Debug: Print all received form data
+
         similarity_score = request.form.get("similarity_score")
-        image_not_displayed = request.form.get("imageNotDisplayed") == "1"
+        image_not_displayed = (
+            request.form.get("imageNotDisplayed") is not None
+        )  # True if checked, False if unchecked
+
+        # image_not_displayed = request.form.get("imageNotDisplayed") == "1"
         image_displayed = not image_not_displayed
+        # print(
+        #     f"DEBUG: similarity_score={similarity_score}, image_not_displayed={image_not_displayed}, image_displayed={image_displayed}"
+        # )
 
         # Save response logic here
         participant_id = session.get("participant_id")
@@ -433,6 +408,7 @@ def survey(photo_id):
     )
 
 
+# Feedback page
 @app.route("/feedback", methods=["GET", "POST"])
 @ensure_step_access("feedback")
 def feedback():
@@ -458,6 +434,7 @@ def feedback():
     return render_template("feedback.html")
 
 
+# Thank you page
 @app.route("/thankyou", methods=["GET", "POST"])
 def thankyou():
     # if "survey_completed" not in session:
@@ -510,6 +487,7 @@ def thankyou():
     return render_template("thankyou.html", completion_code=completion_code)
 
 
+# Thank you complete page
 @app.route("/thankyou_complete")
 def thankyou_complete():
     start_time = session.get("start_time")
@@ -525,6 +503,7 @@ def thankyou_complete():
     return render_template("thankyou_complete.html", elapsed_time=elapsed_time)
 
 
+# Results page
 @app.route("/results", methods=["GET", "POST"])
 def results():
     if "authenticated" not in session:
@@ -595,77 +574,7 @@ def results():
     )
 
 
-# def export_to_excel(filename):
-#     responses = Response.query.all()
-#     data = []
-#     for response in responses:
-#         data.append(
-#             {
-#                 "Participant ID": response.participant_id,
-#                 "Consent ID": response.consent_id,
-#                 "Batch Code": response.batch_code,
-#                 "Version": response.version,
-#                 "Image ID": response.photo_id,
-#                 "Image Index": response.image_index,
-#                 "Similarity Score": response.similarity_score,
-#                 "Completed": response.completed,
-#                 # "Completion Code": session.get(
-#                 #     "entered_completion_code", "N/A"
-#                 # ),  # Store completion code\
-#                 "Completion Code": response.completion_code,
-#                 "MTurk ID": response.mturk_id,
-#             }
-#         )
-
-#     df = pd.DataFrame(data)
-#     df.to_excel(filename, index=False)
-
-
-def export_to_excel(filename):
-    responses = Response.query.all()
-    feedbacks = FeedbackResponse.query.all()
-
-    # Create a dictionary to map feedback to participant and consent IDs
-    feedback_map = {}
-    for feedback in feedbacks:
-        key = (feedback.participant_id, feedback.consent_id)
-        feedback_map[key] = {
-            "Features Considered": feedback.features_considered,
-            "Improvement Suggestions": feedback.improvement_suggestions,
-        }
-
-    data = []
-    for response in responses:
-        participant_id = response.participant_id
-        consent_id = response.consent_id
-
-        feedback_info = feedback_map.get(
-            (participant_id, consent_id),
-            {"Features Considered": "N/A", "Improvement Suggestions": "N/A"},
-        )
-
-        data.append(
-            {
-                "Participant ID": participant_id,
-                "Consent ID": consent_id,
-                "Batch Code": response.batch_code,
-                "Version": response.version,
-                "Image ID": response.photo_id,
-                "Image Index": response.image_index,
-                "Similarity Score": response.similarity_score,
-                "Image Displayed": response.image_displayed,
-                "Completed": response.completed,
-                "Completion Code": response.completion_code,
-                "MTurk ID": response.mturk_id,
-                "Features Considered": feedback_info["Features Considered"],
-                "Improvement Suggestions": feedback_info["Improvement Suggestions"],
-            }
-        )
-
-    df = pd.DataFrame(data)
-    df.to_excel(filename, index=False)
-
-
+# Download results
 @app.route("/download_results", methods=["GET"])
 def download_results():
     filename = "survey_results.xlsx"
@@ -673,24 +582,10 @@ def download_results():
     return send_file(filename, as_attachment=True)
 
 
+# Exit page
 @app.route("/exit")
 def exit():
     return render_template("exit.html")
-
-
-def calculate_median_similarity():
-    similarities = [
-        response.similarity_score
-        for response in Response.query.filter_by(completed=True).all()
-    ]
-    if similarities:
-        sorted_scores = sorted(similarities)
-        mid = len(sorted_scores) // 2
-        if len(sorted_scores) % 2 == 0:
-            return (sorted_scores[mid - 1] + sorted_scores[mid]) / 2.0
-        else:
-            return sorted_scores[mid]
-    return 0
 
 
 # if __name__ == "__main__":

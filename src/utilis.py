@@ -1,9 +1,10 @@
-from flask import request, session
+from flask import request, session, flash, redirect, url_for
 import random
 import pandas as pd
 import hashlib
 import json
 import os
+from functools import wraps
 
 
 PHOTO_SETS_FILENAME = "data/photo_sets.json"
@@ -16,6 +17,13 @@ def get_client_ip():
 
 def get_user_agent():
     return request.headers.get("User-Agent")
+
+
+def generate_unique_participant_id():
+    ip = get_client_ip()
+    user_agent = get_user_agent()
+    unique_string = f"{ip}-{user_agent}"
+    return hashlib.sha256(unique_string.encode()).hexdigest()
 
 
 def get_comparison_data():
@@ -87,3 +95,34 @@ def load_or_create_photo_sets():
         with open(PHOTO_SETS_FILENAME, "w") as file:
             json.dump(photo_sets, file)
     return photo_sets
+
+
+def ensure_step_access(step_name):
+    """
+    Decorator to ensure access to certain routes is only allowed
+    if the user has completed prior steps.
+    """
+
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Define a sequential requirement. After each step is completed,
+            # a flag is set in the session.
+            required_steps = {
+                "question": "consent_given",  # Can access 'question' if 'consent_given' in session
+                "sample": "question_answered",  # Can access 'sample' if 'question_answered' in session
+                "survey": "sample_read",  # Can access 'survey' if 'question_answered' in session
+                "feedback": "survey_completed",  # Can access 'feedback' if 'survey_completed' in session
+                "thankyou": "feedback_given",  # Can access 'thankyou' if 'feedback_given' in session
+                "thankyou_complete": "completion_code_entered",  # Can access 'thankyou_complete' if 'completion_code_entered' in session
+            }
+
+            required_step = required_steps.get(step_name)
+            if required_step and not session.get(required_step):
+                flash("Please complete the previous steps first.")
+                return redirect(url_for("consent"))
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
