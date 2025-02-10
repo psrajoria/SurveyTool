@@ -46,6 +46,7 @@ PHOTO_SETS_FILENAME = "data/photo_sets.json"
 # Global to track photo sets
 photo_sets = load_or_create_photo_sets()
 
+version_count = 20  # Set the maximum version count
 
 # Models
 
@@ -523,16 +524,21 @@ def results():
     # Compute additional information
     total_responses = len(responses)
     unique_participants = len(participants)
+
     similarity_scores = [response.similarity_score for response in responses]
-    average_similarity = sum(similarity_scores) / len(similarity_scores)
+
+    # Avoid division by zero
+    average_similarity = (
+        sum(similarity_scores) / len(similarity_scores) if similarity_scores else 0
+    )
 
     from statistics import median
 
-    median_similarity = median(similarity_scores)
+    median_similarity = median(similarity_scores) if similarity_scores else 0
 
     # Version and participant-specific data
-    version_counts = {i: 0 for i in range(1, 11)}  # Defaults to 0 for 1-10
-    version_average_similarity = {i: [] for i in range(1, 11)}
+    version_counts = {i: 0 for i in range(1, version_count + 1)}  # Uses version_count
+    version_average_similarity = {i: [] for i in range(1, version_count + 1)}
 
     for response in responses:
         version_counts[response.version] += 1
@@ -548,9 +554,13 @@ def results():
         participant_responses = [
             r for r in responses if r.participant_id == participant
         ]
-        avg_score = sum(r.similarity_score for r in participant_responses) / len(
-            participant_responses
+        avg_score = (
+            sum(r.similarity_score for r in participant_responses)
+            / len(participant_responses)
+            if participant_responses
+            else 0
         )
+
         participant_data.append(
             {
                 "id": participant,
@@ -572,6 +582,77 @@ def results():
         version_average_similarity=version_average_similarity,
         participant_data=participant_data,
     )
+
+
+# # Results page
+# @app.route("/results", methods=["GET", "POST"])
+# def results():
+#     if "authenticated" not in session:
+#         if request.method == "POST":
+#             password = request.form.get("password")
+#             if password == "admin123":
+#                 session["authenticated"] = True
+#             else:
+#                 flash("Incorrect password. Please try again.")
+#                 return render_template("login.html")
+#         else:
+#             return render_template("login.html")
+
+#     responses = Response.query.filter_by(completed=True).all()
+#     participants = set(response.participant_id for response in responses)
+
+#     # Compute additional information
+#     total_responses = len(responses)
+#     unique_participants = len(participants)
+#     similarity_scores = [response.similarity_score for response in responses]
+#     average_similarity = sum(similarity_scores) / len(similarity_scores)
+
+#     from statistics import median
+
+#     median_similarity = median(similarity_scores)
+
+#     # Version and participant-specific data
+#     version_counts = {i: 0 for i in range(1, 11)}  # Defaults to 0 for 1-10
+#     version_average_similarity = {i: [] for i in range(1, 11)}
+
+#     for response in responses:
+#         version_counts[response.version] += 1
+#         version_average_similarity[response.version].append(response.similarity_score)
+
+#     for version in version_average_similarity:
+#         scores = version_average_similarity[version]
+#         version_average_similarity[version] = sum(scores) / len(scores) if scores else 0
+
+#     # Participant data for table
+#     participant_data = []
+#     for participant in participants:
+#         participant_responses = [
+#             r for r in responses if r.participant_id == participant
+#         ]
+#         avg_score = sum(r.similarity_score for r in participant_responses) / len(
+#             participant_responses
+#         )
+#         participant_data.append(
+#             {
+#                 "id": participant,
+#                 "version": (
+#                     participant_responses[0].version if participant_responses else None
+#                 ),
+#                 "average_score": avg_score,
+#                 "responses": participant_responses,  # Include all responses from this participant
+#             }
+#         )
+
+#     return render_template(
+#         "results.html",
+#         total_responses=total_responses,
+#         total_participants=unique_participants,
+#         average_similarity=average_similarity,
+#         median_similarity=median_similarity,
+#         version_counts=version_counts,
+#         version_average_similarity=version_average_similarity,
+#         participant_data=participant_data,
+#     )
 
 
 # Download results
